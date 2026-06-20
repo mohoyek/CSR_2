@@ -93,7 +93,11 @@ function buildConfigTxt(req: CsrRequest): string {
 /**
  * Builds the node-forge subject attributes array from the request.
  * Uses proper OIDs for custom fields like serialNumber.
+ * Persian/non-ASCII fields use UTF8String (tag 0x0C) so the resulting
+ * CSR can be re-parsed by both forge and OpenSSL.
  */
+const UTF8STRING = 0x0c;
+
 function buildSubjectAttrs(req: CsrRequest): forge.pki.CertField[] {
   const attrs: forge.pki.CertField[] = [];
 
@@ -101,21 +105,74 @@ function buildSubjectAttrs(req: CsrRequest): forge.pki.CertField[] {
     const fullNameEn = `${req.firstNameEn ?? ""} ${req.lastNameEn ?? ""}`.trim();
     attrs.push({ name: "commonName", value: `${fullNameEn} [Sign]` });
     attrs.push({ name: "organizationName", value: "Unaffiliated" });
-    if (req.lastNameFa) attrs.push({ name: "surname", value: req.lastNameFa });
-    if (req.firstNameFa) attrs.push({ name: "givenName", value: req.firstNameFa });
+    if (req.lastNameFa)
+      attrs.push({
+        name: "surname",
+        value: req.lastNameFa,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.firstNameFa)
+      attrs.push({
+        name: "givenName",
+        value: req.firstNameFa,
+        valueTagClass: UTF8STRING,
+      });
     attrs.push({ name: "countryName", value: "IR" });
-    if (req.provinceFa) attrs.push({ name: "stateOrProvinceName", value: req.provinceFa });
-    if (req.cityFa) attrs.push({ name: "localityName", value: req.cityFa });
+    if (req.provinceFa)
+      attrs.push({
+        name: "stateOrProvinceName",
+        value: req.provinceFa,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.cityFa)
+      attrs.push({
+        name: "localityName",
+        value: req.cityFa,
+        valueTagClass: UTF8STRING,
+      });
     if (req.email) attrs.push({ name: "emailAddress", value: req.email });
     // serialNumber uses OID 2.5.4.5
     attrs.push({ name: "serialNumber", value: req.nationalCode ?? "" });
   } else {
     attrs.push({ name: "commonName", value: `${req.orgNameEn ?? ""} [Stamp]` });
     attrs.push({ name: "organizationName", value: "Non-Governmental" });
-    if (req.orgNameFa) attrs.push({ name: "organizationalUnitName", value: req.orgNameFa });
+    if (req.orgNameFa)
+      attrs.push({
+        name: "organizationalUnitName",
+        value: req.orgNameFa,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.orgUnit1)
+      attrs.push({
+        name: "organizationalUnitName",
+        value: req.orgUnit1,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.orgUnit2)
+      attrs.push({
+        name: "organizationalUnitName",
+        value: req.orgUnit2,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.orgUnit3)
+      attrs.push({
+        name: "organizationalUnitName",
+        value: req.orgUnit3,
+        valueTagClass: UTF8STRING,
+      });
     attrs.push({ name: "countryName", value: "IR" });
-    if (req.provinceFa) attrs.push({ name: "stateOrProvinceName", value: req.provinceFa });
-    if (req.cityFa) attrs.push({ name: "localityName", value: req.cityFa });
+    if (req.provinceFa)
+      attrs.push({
+        name: "stateOrProvinceName",
+        value: req.provinceFa,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.cityFa)
+      attrs.push({
+        name: "localityName",
+        value: req.cityFa,
+        valueTagClass: UTF8STRING,
+      });
     if (req.email) attrs.push({ name: "emailAddress", value: req.email });
     // serialNumber uses OID 2.5.4.5
     attrs.push({ name: "serialNumber", value: req.nationalId ?? "" });

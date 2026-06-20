@@ -40,6 +40,12 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -55,6 +61,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { FileViewer } from "@/components/csr/file-viewer";
+import { VerifyKeysForm } from "@/components/csr/verify-keys-form";
 import { ALL_PROVINCES, getCitiesForProvince, DEFAULT_PASSWORD } from "@/lib/iran-data";
 import { cn } from "@/lib/utils";
 
@@ -339,7 +346,20 @@ export default function Home() {
         </div>
       </section>
 
-      <main className="container mx-auto max-w-6xl px-4 py-8 sm:py-12 flex-1 w-full">
+      <main className="container mx-auto max-w-6xl px-4 py-6 sm:py-10 flex-1 w-full">
+        <Tabs defaultValue="generate" className="w-full">
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-6 h-11">
+            <TabsTrigger value="generate" className="gap-1.5 text-sm">
+              <KeyRound className="size-4" />
+              ساخت گواهی
+            </TabsTrigger>
+            <TabsTrigger value="verify" className="gap-1.5 text-sm">
+              <ShieldCheck className="size-4" />
+              بررسی صحت کلیدها
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="generate" className="mt-0 focus-visible:outline-none">
         <div className="grid lg:grid-cols-5 gap-6 lg:gap-8">
           {/* Form Section */}
           <div className="lg:col-span-3 space-y-6">
@@ -979,6 +999,12 @@ openssl req -new -utf8 -config "C:\\openssl\\config.txt" -newkey rsa:2048 -keyou
             </Alert>
           </section>
         )}
+          </TabsContent>
+
+          <TabsContent value="verify" className="mt-0 focus-visible:outline-none">
+            <VerifyKeysForm />
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Footer */}

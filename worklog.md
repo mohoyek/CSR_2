@@ -48,3 +48,52 @@ Stage Summary:
 - Emerald/teal Iranian-inspired color palette (no blue/indigo per design rules)
 - Sticky footer, sticky header, scroll-to-results on submit, copy + download buttons per file, "download all" button
 - All files for the project: src/app/layout.tsx, src/app/globals.css, src/app/page.tsx, src/app/api/generate-csr/route.ts, src/lib/iran-data.ts, src/components/csr/file-viewer.tsx
+
+---
+Task ID: 2
+Agent: main (Z.ai Code)
+Task: Add a "Key Validation" feature (بررسی صحت کلیدها). Users should be able to paste CSR, private key, and public key into three text areas and the system should validate that all three are mutually consistent. Based on a provided sample image showing 3 textareas + a verify button.
+
+Work Log:
+- Read the new uploaded image (pasted_image_1781939971270.png) via VLM to understand the target UI: 3 side-by-side textareas labeled CSR / کلید خصوصی / کلید عمومی, an info banner, and a verify button at the bottom
+- Designed the feature as a second tab in the existing page (instead of a separate route, since only / is user-visible):
+  - Tab 1: "ساخت گواهی" (existing generate flow)
+  - Tab 2: "بررسی صحت کلیدها" (new verify flow)
+- Created `/api/verify-keys` POST endpoint using node-forge that runs 7 checks:
+  1. CSR PEM parse
+  2. Private key PEM parse
+  3. Public key PEM parse
+  4. CSR self-signature verification (csr.verify())
+  5. CSR's embedded public key vs pasted public key (SHA-256 fingerprint match)
+  6. Private key's derived public key vs pasted public key (fingerprint match)
+  7. Private key's derived public key vs CSR's public key (fingerprint match)
+  Returns: per-check status (pass/fail/skip), extracted CSR subject info (CN, O, OU[], C, S, L, E, serialNumber, signatureAlgorithm), key info (algorithm, keySize, SHA-256 fingerprint), and an overall match summary
+- Discovered a critical node-forge bug: CSRs containing Persian (UTF-8) subject fields cannot be re-parsed by forge itself. Root cause: forge defaults to PrintableString encoding for OU/S/L, which corrupts multi-byte UTF-8 length calculations in the ASN.1 parser ("Too few bytes to read ASN.1 value")
+- Fix applied to `/api/generate-csr`: set `valueTagClass: 0x0C` (UTF8String) on all Persian/non-ASCII subject attributes (OU, S, L, SN, G, plus multiple OUs). Verified the resulting CSR parses cleanly in both forge and `openssl req -verify`
+- Fix applied to `/api/verify-keys`: added `decodeMaybeUtf8()` helper that re-interprets forge's binary-string attribute values as UTF-8 when they contain bytes >= 0x80, so Persian fields display correctly in the verification report
+- Built `VerifyKeysForm` component with:
+  - Info banner explaining the feature
+  - 3 `KeyInputCard` components (CSR / Private Key / Public Key) each with: icon, title, subtitle, paste-from-clipboard button, LTR textarea (PEM content), character counter, "محرمانه" badge on the private key card
+  - Verify + Clear buttons
+  - Results section (after submit): overall status card with a ProgressRing (passes/total), detailed check list with pass/fail/skip badges, and two info cards (CSR subject info + key info with SHA-256 fingerprints and copy buttons)
+- Refactored `src/app/page.tsx` to wrap the existing generate form and the new VerifyKeysForm in a shadcn/ui Tabs component with two triggers
+- In-process bun test script verified all 3 scenarios:
+  - All keys match → 7/7 pass, Persian fields display correctly ("شرکت نمونه / واحد فنی", "تهران")
+  - Mismatched public key → 5/7 pass, 2 fail (the two public-key matching checks)
+  - Only CSR → 2/7 pass (CSR parse + signature verify), rest skipped
+- Agent Browser end-to-end test:
+  - Switched to "بررسی صحت کلیدها" tab — 3 textareas + buttons render correctly
+  - Populated textareas via native input setter (to work with React controlled inputs) using real keys generated with the UTF8String fix
+  - Clicked "بررسی صحت کلیدها" → result shows "کلیدها کاملاً منطبق و معتبر هستند" with 7/7 checks passing, all Persian subject fields (OU, S, L) display correctly, fingerprints match across all 3 keys
+  - Replaced public key with a mismatched one → clicked verify → result shows "تطابق کامل نیست" with 5 pass / 2 fail badges
+  - Mobile (iPhone 14) view of verify tab renders correctly
+- VLM evaluation of the verify interface: 8/10, no visual issues, RTL layout correct, buttons well-placed
+- Lint clean, no runtime errors
+
+Stage Summary:
+- Added a complete "Key Validation" feature accessible via the second tab on the homepage
+- Users can paste CSR + private key + public key (with one-click "paste from clipboard" buttons) and get an instant validation report
+- The validation runs 7 cryptographic checks: PEM parsing, CSR signature verification, and 3-way public key matching via SHA-256 fingerprints
+- Fixed a real node-forge bug with Persian/UTF-8 subject fields: generate-csr now uses UTF8String encoding (tag 0x0C), making CSRs that are re-parseable by both forge and OpenSSL
+- Extracted CSR subject info (including Persian OU/S/L) is displayed correctly thanks to a Latin-1→UTF-8 decode helper
+- Files created/modified: src/app/api/verify-keys/route.ts (new), src/app/api/generate-csr/route.ts (UTF8String fix), src/components/csr/verify-keys-form.tsx (new), src/app/page.tsx (tabs integration)
