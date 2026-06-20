@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 const DEFAULT_PASSWORD = "RAYNOP@SSWORD123456";
 
-type PersonaType = "UNA" | "NGO";
+type PersonaType = "UNA" | "NGO" | "DAB";
 
 interface CsrRequest {
   persona: PersonaType;
@@ -27,6 +27,17 @@ interface CsrRequest {
   orgUnit1?: string;
   orgUnit2?: string;
   orgUnit3?: string;
+  // DAB (Electronic Registry Office) fields - Appendix 3
+  dabFirstNameFa?: string; // G (GivenName) - mandatory Fa
+  dabLastNameFa?: string; // SN (Surname) - mandatory Fa
+  dabNationalCode?: string; // 10-digit, used in CN as [National Code]
+  dabOfficeNameFa?: string; // OU (mandatory Fa) - Registry Office Name
+  dabOfficeNameEn?: string; // used in CN as RaName.RA [NationalCode]
+  dabOfficeId?: string; // SERIALNUMBER - Registry Office ID
+  dabOrgType?: "Governmental" | "Non-Governmental"; // O field
+  dabOrgUnit1?: string;
+  dabOrgUnit2?: string;
+  dabOrgUnit3?: string;
 }
 
 interface GeneratedFiles {
@@ -70,7 +81,7 @@ function buildConfigTxt(req: CsrRequest): string {
     if (req.email) {
       lines.push(`E = ${req.email}`);
     }
-  } else {
+  } else if (req.persona === "NGO") {
     // Legal Person (NGO - Non-Governmental)
     lines.push(`CN = ${req.orgNameEn ?? ""} [Stamp]`);
     lines.push(`serialNumber = ${req.nationalId ?? ""}`);
@@ -82,6 +93,24 @@ function buildConfigTxt(req: CsrRequest): string {
     lines.push(`S = ${req.provinceFa ?? ""}`);
     lines.push(`L = ${req.cityFa ?? ""}`);
     lines.push(`C = IR`);
+    if (req.email) {
+      lines.push(`E = ${req.email}`);
+    }
+  } else {
+    // DAB - Electronic Registry Office (Appendix 3)
+    // CN format: {OfficeNameEn}.RA [{NationalCode}]
+    lines.push(`CN = ${req.dabOfficeNameEn ?? ""}.RA [${req.dabNationalCode ?? ""}]`);
+    lines.push(`serialNumber = ${req.dabOfficeId ?? ""}`);
+    lines.push(`O = ${req.dabOrgType ?? "Non-Governmental"}`);
+    lines.push(`OU = ${req.dabOfficeNameFa ?? ""}`);
+    if (req.dabOrgUnit1) lines.push(`1.OU = ${req.dabOrgUnit1}`);
+    if (req.dabOrgUnit2) lines.push(`2.OU = ${req.dabOrgUnit2}`);
+    if (req.dabOrgUnit3) lines.push(`3.OU = ${req.dabOrgUnit3}`);
+    lines.push(`S = ${req.provinceFa ?? ""}`);
+    lines.push(`L = ${req.cityFa ?? ""}`);
+    lines.push(`C = IR`);
+    lines.push(`SN = ${req.dabLastNameFa ?? ""}`);
+    lines.push(`G = ${req.dabFirstNameFa ?? ""}`);
     if (req.email) {
       lines.push(`E = ${req.email}`);
     }
@@ -133,7 +162,7 @@ function buildSubjectAttrs(req: CsrRequest): forge.pki.CertField[] {
     if (req.email) attrs.push({ name: "emailAddress", value: req.email });
     // serialNumber uses OID 2.5.4.5
     attrs.push({ name: "serialNumber", value: req.nationalCode ?? "" });
-  } else {
+  } else if (req.persona === "NGO") {
     attrs.push({ name: "commonName", value: `${req.orgNameEn ?? ""} [Stamp]` });
     attrs.push({ name: "organizationName", value: "Non-Governmental" });
     if (req.orgNameFa)
@@ -176,6 +205,69 @@ function buildSubjectAttrs(req: CsrRequest): forge.pki.CertField[] {
     if (req.email) attrs.push({ name: "emailAddress", value: req.email });
     // serialNumber uses OID 2.5.4.5
     attrs.push({ name: "serialNumber", value: req.nationalId ?? "" });
+  } else {
+    // DAB - Electronic Registry Office (Appendix 3)
+    // CN format: {OfficeNameEn}.RA [{NationalCode}]
+    attrs.push({
+      name: "commonName",
+      value: `${req.dabOfficeNameEn ?? ""}.RA [${req.dabNationalCode ?? ""}]`,
+    });
+    attrs.push({
+      name: "organizationName",
+      value: req.dabOrgType ?? "Non-Governmental",
+    });
+    if (req.dabOfficeNameFa)
+      attrs.push({
+        name: "organizationalUnitName",
+        value: req.dabOfficeNameFa,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.dabOrgUnit1)
+      attrs.push({
+        name: "organizationalUnitName",
+        value: req.dabOrgUnit1,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.dabOrgUnit2)
+      attrs.push({
+        name: "organizationalUnitName",
+        value: req.dabOrgUnit2,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.dabOrgUnit3)
+      attrs.push({
+        name: "organizationalUnitName",
+        value: req.dabOrgUnit3,
+        valueTagClass: UTF8STRING,
+      });
+    attrs.push({ name: "countryName", value: "IR" });
+    if (req.provinceFa)
+      attrs.push({
+        name: "stateOrProvinceName",
+        value: req.provinceFa,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.cityFa)
+      attrs.push({
+        name: "localityName",
+        value: req.cityFa,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.dabLastNameFa)
+      attrs.push({
+        name: "surname",
+        value: req.dabLastNameFa,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.dabFirstNameFa)
+      attrs.push({
+        name: "givenName",
+        value: req.dabFirstNameFa,
+        valueTagClass: UTF8STRING,
+      });
+    if (req.email) attrs.push({ name: "emailAddress", value: req.email });
+    // serialNumber uses OID 2.5.4.5 — Registry Office ID
+    attrs.push({ name: "serialNumber", value: req.dabOfficeId ?? "" });
   }
 
   return attrs;
@@ -206,6 +298,20 @@ function validateInput(req: CsrRequest): string[] {
       errors.push("شناسه ملی باید دقیقاً ۱۱ رقم باشد.");
     if (!req.provinceFa?.trim()) errors.push("نام استان الزامی است.");
     if (!req.cityFa?.trim()) errors.push("نام شهر الزامی است.");
+  } else if (req.persona === "DAB") {
+    if (!req.dabFirstNameFa?.trim()) errors.push("نام (فارسی) الزامی است.");
+    if (!req.dabLastNameFa?.trim()) errors.push("نام خانوادگی (فارسی) الزامی است.");
+    if (!req.dabNationalCode?.trim()) errors.push("کد ملی الزامی است.");
+    else if (!/^\d{10}$/.test(req.dabNationalCode.trim()))
+      errors.push("کد ملی باید دقیقاً ۱۰ رقم باشد.");
+    if (!req.dabOfficeNameFa?.trim())
+      errors.push("نام مرجع ثبت دفتر (فارسی) الزامی است.");
+    if (!req.dabOfficeNameEn?.trim())
+      errors.push("نام مرجع ثبت دفتر (انگلیسی) الزامی است.");
+    if (!req.dabOfficeId?.trim())
+      errors.push("شناسه مرجع ثبت دفتر الزامی است.");
+    if (!req.provinceFa?.trim()) errors.push("نام استان الزامی است.");
+    if (!req.cityFa?.trim()) errors.push("نام شهر الزامی است.");
   } else {
     errors.push("نوع شخص نامعتبر است.");
   }
@@ -220,7 +326,11 @@ function validateInput(req: CsrRequest): string[] {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as CsrRequest;
-    const password = body.password?.trim() || DEFAULT_PASSWORD;
+    // DAB persona: password is always handled in the backend (never read from client)
+    const password =
+      body.persona === "DAB"
+        ? DEFAULT_PASSWORD
+        : body.password?.trim() || DEFAULT_PASSWORD;
 
     // Validate input
     const errors = validateInput(body);
@@ -271,11 +381,19 @@ export async function POST(request: NextRequest) {
     };
 
     // Build summary
-    const commonName =
-      body.persona === "UNA"
-        ? `${body.firstNameEn} ${body.lastNameEn} [Sign]`
-        : `${body.orgNameEn} [Stamp]`;
-    const serialNumber = body.persona === "UNA" ? body.nationalCode! : body.nationalId!;
+    let commonName: string;
+    let serialNumber: string;
+    if (body.persona === "UNA") {
+      commonName = `${body.firstNameEn} ${body.lastNameEn} [Sign]`;
+      serialNumber = body.nationalCode!;
+    } else if (body.persona === "NGO") {
+      commonName = `${body.orgNameEn} [Stamp]`;
+      serialNumber = body.nationalId!;
+    } else {
+      // DAB
+      commonName = `${body.dabOfficeNameEn}.RA [${body.dabNationalCode}]`;
+      serialNumber = body.dabOfficeId!;
+    }
 
     const summary = {
       persona: body.persona,

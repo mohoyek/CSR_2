@@ -17,6 +17,7 @@ import {
   Terminal,
   User,
   Users,
+  Building2,
   AlertCircle,
   Copy,
   Check,
@@ -33,12 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import {
   Tabs,
   TabsContent,
@@ -65,7 +60,8 @@ import { VerifyKeysForm } from "@/components/csr/verify-keys-form";
 import { ALL_PROVINCES, getCitiesForProvince, DEFAULT_PASSWORD } from "@/lib/iran-data";
 import { cn } from "@/lib/utils";
 
-type Persona = "UNA" | "NGO";
+type Persona = "UNA" | "NGO" | "DAB";
+type DabOrgType = "Governmental" | "Non-Governmental";
 
 interface GenerationResult {
   configTxt: string;
@@ -114,6 +110,18 @@ export default function Home() {
   const [orgUnit2, setOrgUnit2] = useState("");
   const [orgUnit3, setOrgUnit3] = useState("");
 
+  // DAB (Electronic Registry Office) fields
+  const [dabFirstNameFa, setDabFirstNameFa] = useState("");
+  const [dabLastNameFa, setDabLastNameFa] = useState("");
+  const [dabNationalCode, setDabNationalCode] = useState("");
+  const [dabOfficeNameFa, setDabOfficeNameFa] = useState("");
+  const [dabOfficeNameEn, setDabOfficeNameEn] = useState("");
+  const [dabOfficeId, setDabOfficeId] = useState("");
+  const [dabOrgType, setDabOrgType] = useState<DabOrgType>("Non-Governmental");
+  const [dabOrgUnit1, setDabOrgUnit1] = useState("");
+  const [dabOrgUnit2, setDabOrgUnit2] = useState("");
+  const [dabOrgUnit3, setDabOrgUnit3] = useState("");
+
   // Password (with default)
   const [password, setPassword] = useState(DEFAULT_PASSWORD);
   const [showPassword, setShowPassword] = useState(false);
@@ -140,6 +148,16 @@ export default function Home() {
     setOrgUnit1("");
     setOrgUnit2("");
     setOrgUnit3("");
+    setDabFirstNameFa("");
+    setDabLastNameFa("");
+    setDabNationalCode("");
+    setDabOfficeNameFa("");
+    setDabOfficeNameEn("");
+    setDabOfficeId("");
+    setDabOrgType("Non-Governmental");
+    setDabOrgUnit1("");
+    setDabOrgUnit2("");
+    setDabOrgUnit3("");
     setProvince("");
     setCity("");
     setEmail("");
@@ -158,40 +176,71 @@ export default function Home() {
       if (!nationalCode.trim()) errs.push("کد ملی الزامی است.");
       else if (!/^\d{10}$/.test(nationalCode.trim()))
         errs.push("کد ملی باید دقیقاً ۱۰ رقم باشد.");
-    } else {
+    } else if (persona === "NGO") {
       if (!orgNameFa.trim()) errs.push("نام سازمان (فارسی) الزامی است.");
       if (!orgNameEn.trim()) errs.push("نام سازمان لاتین الزامی است.");
       if (!nationalId.trim()) errs.push("شناسه ملی سازمان الزامی است.");
       else if (!/^\d{11}$/.test(nationalId.trim()))
         errs.push("شناسه ملی باید دقیقاً ۱۱ رقم باشد.");
+    } else {
+      // DAB
+      if (!dabFirstNameFa.trim()) errs.push("نام (فارسی) الزامی است.");
+      if (!dabLastNameFa.trim()) errs.push("نام خانوادگی (فارسی) الزامی است.");
+      if (!dabNationalCode.trim()) errs.push("کد ملی الزامی است.");
+      else if (!/^\d{10}$/.test(dabNationalCode.trim()))
+        errs.push("کد ملی باید دقیقاً ۱۰ رقم باشد.");
+      if (!dabOfficeNameFa.trim())
+        errs.push("نام مرجع ثبت دفتر (فارسی) الزامی است.");
+      if (!dabOfficeNameEn.trim())
+        errs.push("نام مرجع ثبت دفتر (انگلیسی) الزامی است.");
+      if (!dabOfficeId.trim())
+        errs.push("شناسه مرجع ثبت دفتر الزامی است.");
     }
     if (!province.trim()) errs.push("انتخاب استان الزامی است.");
     if (!city.trim()) errs.push("انتخاب شهر الزامی است.");
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       errs.push("پست الکترونیک معتبر نیست.");
-    if (!password.trim()) errs.push("رمز عبور الزامی است.");
+    // DAB persona: password is handled in backend, no client-side password check
+    if (persona !== "DAB" && !password.trim()) errs.push("رمز عبور الزامی است.");
     return errs;
   };
 
   const buildPayload = () => {
-    return {
+    const base: Record<string, unknown> = {
       persona,
-      password,
       email: email.trim() || undefined,
       provinceFa: province,
       cityFa: city,
-      firstNameFa: firstNameFa.trim() || undefined,
-      lastNameFa: lastNameFa.trim() || undefined,
-      firstNameEn: firstNameEn.trim() || undefined,
-      lastNameEn: lastNameEn.trim() || undefined,
-      nationalCode: nationalCode.trim() || undefined,
-      orgNameFa: orgNameFa.trim() || undefined,
-      orgNameEn: orgNameEn.trim() || undefined,
-      nationalId: nationalId.trim() || undefined,
-      orgUnit1: orgUnit1.trim() || undefined,
-      orgUnit2: orgUnit2.trim() || undefined,
-      orgUnit3: orgUnit3.trim() || undefined,
     };
+    if (persona === "UNA") {
+      base.password = password;
+      base.firstNameFa = firstNameFa.trim() || undefined;
+      base.lastNameFa = lastNameFa.trim() || undefined;
+      base.firstNameEn = firstNameEn.trim() || undefined;
+      base.lastNameEn = lastNameEn.trim() || undefined;
+      base.nationalCode = nationalCode.trim() || undefined;
+    } else if (persona === "NGO") {
+      base.password = password;
+      base.orgNameFa = orgNameFa.trim() || undefined;
+      base.orgNameEn = orgNameEn.trim() || undefined;
+      base.nationalId = nationalId.trim() || undefined;
+      base.orgUnit1 = orgUnit1.trim() || undefined;
+      base.orgUnit2 = orgUnit2.trim() || undefined;
+      base.orgUnit3 = orgUnit3.trim() || undefined;
+    } else {
+      // DAB — no password from client (handled in backend)
+      base.dabFirstNameFa = dabFirstNameFa.trim() || undefined;
+      base.dabLastNameFa = dabLastNameFa.trim() || undefined;
+      base.dabNationalCode = dabNationalCode.trim() || undefined;
+      base.dabOfficeNameFa = dabOfficeNameFa.trim() || undefined;
+      base.dabOfficeNameEn = dabOfficeNameEn.trim() || undefined;
+      base.dabOfficeId = dabOfficeId.trim() || undefined;
+      base.dabOrgType = dabOrgType;
+      base.dabOrgUnit1 = dabOrgUnit1.trim() || undefined;
+      base.dabOrgUnit2 = dabOrgUnit2.trim() || undefined;
+      base.dabOrgUnit3 = dabOrgUnit3.trim() || undefined;
+    }
+    return base;
   };
 
   const handleSubmit = async () => {
@@ -360,9 +409,9 @@ export default function Home() {
           </TabsList>
 
           <TabsContent value="generate" className="mt-0 focus-visible:outline-none">
-        <div className="grid lg:grid-cols-5 gap-6 lg:gap-8">
+        <div className="max-w-4xl mx-auto space-y-6">
           {/* Form Section */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="space-y-6">
             <Card className="border-border/60 shadow-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -383,7 +432,7 @@ export default function Home() {
                     setPersona(v as Persona);
                     setErrors([]);
                   }}
-                  className="grid sm:grid-cols-2 gap-3"
+                  className="grid sm:grid-cols-3 gap-3"
                 >
                   <Label
                     htmlFor="persona-una"
@@ -396,13 +445,13 @@ export default function Home() {
                   >
                     <RadioGroupItem value="UNA" id="persona-una" className="mt-1" />
                     <div className="flex flex-col gap-1 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <User className="size-4 text-primary" />
-                        <span className="font-semibold">شخص حقیقی</span>
+                        <span className="font-semibold text-sm">شخص حقیقی</span>
                         <Badge variant="outline" className="text-[10px] font-mono">UNA</Badge>
                       </div>
                       <span className="text-xs text-muted-foreground leading-5">
-                        شخص مستقل حقیقی (Unaffiliated) — مناسب افراد برای ارتباط با سامانه مودیان.
+                        شخص مستقل حقیقی (Unaffiliated)
                       </span>
                     </div>
                   </Label>
@@ -418,13 +467,35 @@ export default function Home() {
                   >
                     <RadioGroupItem value="NGO" id="persona-ngo" className="mt-1" />
                     <div className="flex flex-col gap-1 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Users className="size-4 text-primary" />
-                        <span className="font-semibold">شخص حقوقی</span>
+                        <span className="font-semibold text-sm">شخص حقوقی</span>
                         <Badge variant="outline" className="text-[10px] font-mono">NGO</Badge>
                       </div>
                       <span className="text-xs text-muted-foreground leading-5">
-                        شخص حقوقی غیردولتی (Non-Governmental) — مناسب شرکت‌ها و سازمان‌ها.
+                        شخص حقوقی غیردولتی (Non-Governmental)
+                      </span>
+                    </div>
+                  </Label>
+
+                  <Label
+                    htmlFor="persona-dab"
+                    className={cn(
+                      "flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-all hover:bg-accent/40",
+                      persona === "DAB"
+                        ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                        : "border-border"
+                    )}
+                  >
+                    <RadioGroupItem value="DAB" id="persona-dab" className="mt-1" />
+                    <div className="flex flex-col gap-1 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Building2 className="size-4 text-primary" />
+                        <span className="font-semibold text-sm">مرجع ثبت دفتر</span>
+                        <Badge variant="outline" className="text-[10px] font-mono">DAB</Badge>
+                      </div>
+                      <span className="text-xs text-muted-foreground leading-5">
+                        صاحبان گواهی مرجع ثبت دفتر الکترونیکی
                       </span>
                     </div>
                   </Label>
@@ -439,12 +510,18 @@ export default function Home() {
                   <span className="size-7 rounded-lg bg-primary/10 text-primary grid place-items-center">
                     ۲
                   </span>
-                  {persona === "UNA" ? "اطلاعات شخص حقیقی" : "اطلاعات شخص حقوقی"}
+                  {persona === "UNA"
+                    ? "اطلاعات شخص حقیقی"
+                    : persona === "NGO"
+                    ? "اطلاعات شخص حقوقی"
+                    : "اطلاعات مرجع ثبت دفتر الکترونیکی"}
                 </CardTitle>
                 <CardDescription>
                   {persona === "UNA"
                     ? "اطلاعات هویتی فردی مطابق کارت ملی وارد شود."
-                    : "اطلاعات سازمانی مطابق روزنامه رسمی وارد شود."}
+                    : persona === "NGO"
+                    ? "اطلاعات سازمانی مطابق روزنامه رسمی وارد شود."
+                    : "اطلاعات مرجع ثبت دفتر و متصدی آن مطابق پروانه فعالیت وارد شود."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -531,7 +608,7 @@ export default function Home() {
                       />
                     </FieldGroup>
                   </>
-                ) : (
+                ) : persona === "NGO" ? (
                   <>
                     <div className="grid sm:grid-cols-2 gap-4">
                       <FieldGroup
@@ -617,6 +694,190 @@ export default function Home() {
                       </div>
                     </div>
                   </>
+                ) : (
+                  // DAB — Electronic Registry Office (Appendix 3)
+                  <>
+                    {/* O type sub-toggle */}
+                    <div className="space-y-2">
+                      <Label className="text-sm flex items-center gap-2">
+                        <span>نوع سازمان</span>
+                        <span className="text-[10px] font-mono text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded">
+                          Organization — O
+                        </span>
+                      </Label>
+                      <RadioGroup
+                        value={dabOrgType}
+                        onValueChange={(v) => setDabOrgType(v as DabOrgType)}
+                        className="grid grid-cols-2 gap-2"
+                      >
+                        <Label
+                          htmlFor="dab-gov"
+                          className={cn(
+                            "flex items-center gap-2 rounded-lg border-2 px-3 py-2 cursor-pointer transition-all",
+                            dabOrgType === "Governmental"
+                              ? "border-primary bg-primary/5"
+                              : "border-border"
+                          )}
+                        >
+                          <RadioGroupItem value="Governmental" id="dab-gov" />
+                          <span className="text-sm">دولتی</span>
+                          <span className="text-[10px] font-mono text-muted-foreground">Governmental</span>
+                        </Label>
+                        <Label
+                          htmlFor="dab-ngo"
+                          className={cn(
+                            "flex items-center gap-2 rounded-lg border-2 px-3 py-2 cursor-pointer transition-all",
+                            dabOrgType === "Non-Governmental"
+                              ? "border-primary bg-primary/5"
+                              : "border-border"
+                          )}
+                        >
+                          <RadioGroupItem value="Non-Governmental" id="dab-ngo" />
+                          <span className="text-sm">غیردولتی</span>
+                          <span className="text-[10px] font-mono text-muted-foreground">Non-Governmental</span>
+                        </Label>
+                      </RadioGroup>
+                    </div>
+
+                    <Separator />
+
+                    {/* Registry office name */}
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <FieldGroup
+                        label="نام مرجع ثبت دفتر (فارسی)"
+                        required
+                        hint="OU — نام دفتر"
+                        htmlFor="dabOfficeNameFa"
+                      >
+                        <Input
+                          id="dabOfficeNameFa"
+                          value={dabOfficeNameFa}
+                          onChange={(e) => setDabOfficeNameFa(e.target.value)}
+                          placeholder="مثال: دفتر ثبت الکترونیکی تهران"
+                          className="bg-background"
+                        />
+                      </FieldGroup>
+                      <FieldGroup
+                        label="Office Name (English)"
+                        required
+                        hint="CN: RaName.RA [code]"
+                        htmlFor="dabOfficeNameEn"
+                      >
+                        <Input
+                          id="dabOfficeNameEn"
+                          value={dabOfficeNameEn}
+                          onChange={(e) => setDabOfficeNameEn(e.target.value)}
+                          placeholder="e.g. TehranRegistryOffice"
+                          dir="ltr"
+                          className="bg-background text-left"
+                        />
+                      </FieldGroup>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <FieldGroup
+                        label="شناسه مرجع ثبت دفتر"
+                        required
+                        hint="SERIALNUMBER"
+                        htmlFor="dabOfficeId"
+                      >
+                        <Input
+                          id="dabOfficeId"
+                          value={dabOfficeId}
+                          onChange={(e) => setDabOfficeId(e.target.value)}
+                          placeholder="شناسه مرجع ثبت دفتر"
+                          dir="ltr"
+                          className="bg-background text-left"
+                        />
+                      </FieldGroup>
+                      <FieldGroup
+                        label="کد ملی متصدی"
+                        required
+                        hint="10-digit — CN [National Code]"
+                        htmlFor="dabNationalCode"
+                      >
+                        <Input
+                          id="dabNationalCode"
+                          value={dabNationalCode}
+                          onChange={(e) =>
+                            setDabNationalCode(e.target.value.replace(/\D/g, "").slice(0, 10))
+                          }
+                          placeholder="مثال: 1234567890"
+                          dir="ltr"
+                          inputMode="numeric"
+                          className="bg-background text-left tracking-widest"
+                        />
+                      </FieldGroup>
+                    </div>
+
+                    <Separator />
+
+                    {/* Person name */}
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <FieldGroup
+                        label="نام (فارسی)"
+                        required
+                        hint="Given Name — G"
+                        htmlFor="dabFirstNameFa"
+                      >
+                        <Input
+                          id="dabFirstNameFa"
+                          value={dabFirstNameFa}
+                          onChange={(e) => setDabFirstNameFa(e.target.value)}
+                          placeholder="مثال: محمد"
+                          className="bg-background"
+                        />
+                      </FieldGroup>
+                      <FieldGroup
+                        label="نام خانوادگی (فارسی)"
+                        required
+                        hint="Surname — SN"
+                        htmlFor="dabLastNameFa"
+                      >
+                        <Input
+                          id="dabLastNameFa"
+                          value={dabLastNameFa}
+                          onChange={(e) => setDabLastNameFa(e.target.value)}
+                          placeholder="مثال: رضایی"
+                          className="bg-background"
+                        />
+                      </FieldGroup>
+                    </div>
+
+                    <Separator />
+
+                    {/* Optional org units */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">
+                          واحدهای سازمانی (اختیاری)
+                        </span>
+                        <Badge variant="outline" className="text-[10px]">
+                          1.OU / 2.OU / 3.OU
+                        </Badge>
+                      </div>
+                      <div className="grid sm:grid-cols-3 gap-3">
+                        <Input
+                          value={dabOrgUnit1}
+                          onChange={(e) => setDabOrgUnit1(e.target.value)}
+                          placeholder="واحد سازمانی ۱"
+                          className="bg-background"
+                        />
+                        <Input
+                          value={dabOrgUnit2}
+                          onChange={(e) => setDabOrgUnit2(e.target.value)}
+                          placeholder="واحد سازمانی ۲"
+                          className="bg-background"
+                        />
+                        <Input
+                          value={dabOrgUnit3}
+                          onChange={(e) => setDabOrgUnit3(e.target.value)}
+                          placeholder="واحد سازمانی ۳"
+                          className="bg-background"
+                        />
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 <Separator />
@@ -683,7 +944,17 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            {/* Password section */}
+            {/* Password section — hidden for DAB (handled in backend) */}
+            {persona === "DAB" ? (
+              <Alert className="border-primary/30 bg-primary/5">
+                <Lock className="size-4 text-primary" />
+                <AlertTitle>رمز کلید خصوصی</AlertTitle>
+                <AlertDescription className="text-xs leading-6">
+                  برای مرجع ثبت دفتر الکترونیکی، رمز کلید خصوصی به‌صورت خودکار در
+                  بک‌اند اعمال می‌شود و نیازی به ورود آن نیست. کلید خصوصی (<code dir="ltr">mykey.key</code>) را پس از دریافت در محل امن نگه‌دارید.
+                </AlertDescription>
+              </Alert>
+            ) : (
             <Card className="border-border/60 shadow-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -734,6 +1005,7 @@ export default function Home() {
                 </Alert>
               </CardContent>
             </Card>
+            )}
 
             {/* Validation errors */}
             {errors.length > 0 && (
@@ -781,113 +1053,6 @@ export default function Home() {
               </Button>
             </div>
           </div>
-
-          {/* Right Sidebar: Step Guide & Info */}
-          <aside className="lg:col-span-2 space-y-6">
-            <Card className="border-border/60 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Info className="size-4 text-primary" />
-                  درباره گواهی الکترونیک
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
-                <p>
-                  گواهی الکترونیک برای احراز هویت در سامانه‌های مالیاتی، به ویژه
-                  سامانه مودیان، ضروری است. درخواست گواهی (CSR) حاوی کلید عمومی و
-                  اطلاعات هویتی شماست.
-                </p>
-                <p>
-                  پس از صدور گواهی توسط مرکز صدور، فایل <code dir="ltr" className="px-1 bg-muted rounded">certificate.crt</code> را
-                  دریافت کرده و با کلید خصوصی، فایل <code dir="ltr" className="px-1 bg-muted rounded">keystore.pfx</code> می‌سازید.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/60 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Terminal className="size-4 text-primary" />
-                  راهنمای مراحل (OpenSSL)
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  در صورت تمایل به اجرای دستی، مراحل زیر را دنبال کنید.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Accordion type="single" collapsible className="w-full" defaultValue="step-1">
-                  <AccordionItem value="step-1">
-                    <AccordionTrigger className="text-sm py-3">
-                      ۱. نصب OpenSSL
-                    </AccordionTrigger>
-                    <AccordionContent className="text-xs leading-6 space-y-2 text-muted-foreground">
-                      <p>برنامه OpenSSL را از نشانی <code dir="ltr" className="px-1 bg-muted rounded">www.gica.ir</code> دانلود کنید.</p>
-                      <p>فایل‌ها را در مسیر <code dir="ltr" className="px-1 bg-muted rounded">C:\openssl</code> استخراج کنید.</p>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="step-2">
-                    <AccordionTrigger className="text-sm py-3">
-                      ۲. ساخت فایل config.txt
-                    </AccordionTrigger>
-                    <AccordionContent className="text-xs leading-6 space-y-2 text-muted-foreground">
-                      <p>یک فایل متنی UTF-8 به نام <code dir="ltr" className="px-1 bg-muted rounded">config.txt</code> در مسیر OpenSSL ایجاد کنید.</p>
-                      <p>محتوای فایل توسط این سامانه به‌صورت خودکار تولید می‌شود — کافی است آن را دانلود و در مسیر موردنظر قرار دهید.</p>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="step-3">
-                    <AccordionTrigger className="text-sm py-3">
-                      ۳. ساخت CSR و کلید خصوصی
-                    </AccordionTrigger>
-                    <AccordionContent className="text-xs leading-6 space-y-2 text-muted-foreground">
-                      <p>در محیط CMD دستور زیر را اجرا کنید:</p>
-                      <pre dir="ltr" className="code-block bg-muted/60 rounded p-2 text-[11px] overflow-x-auto">
-{`cd /d "C:\\Openssl\\bin"
-openssl req -new -utf8 -config "C:\\openssl\\config.txt" -newkey rsa:2048 -keyout mykey.key -out mycsr.txt`}
-                      </pre>
-                      <p>رمز عبور را دو بار وارد کنید (PEM pass phrase).</p>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="step-4">
-                    <AccordionTrigger className="text-sm py-3">
-                      ۴. استخراج کلید عمومی
-                    </AccordionTrigger>
-                    <AccordionContent className="text-xs leading-6 space-y-2 text-muted-foreground">
-                      <p>برای استخراج کلید عمومی از کلید خصوصی:</p>
-                      <pre dir="ltr" className="code-block bg-muted/60 rounded p-2 text-[11px] overflow-x-auto">
-{`openssl rsa -in mykey.key -pubout -out mypublickey.txt`}
-                      </pre>
-                      <p>رمز کلید خصوصی را وارد کنید تا کلید عمومی تولید شود.</p>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="step-5">
-                    <AccordionTrigger className="text-sm py-3">
-                      ۵. ساخت فایل PFX
-                    </AccordionTrigger>
-                    <AccordionContent className="text-xs leading-6 space-y-2 text-muted-foreground">
-                      <p>پس از دریافت گواهی از مرکز صدور:</p>
-                      <pre dir="ltr" className="code-block bg-muted/60 rounded p-2 text-[11px] overflow-x-auto">
-{`openssl pkcs12 -export -inkey mykey.key -in certificate.crt -out keystore.pfx`}
-                      </pre>
-                      <p>رمز Export را وارد کنید. این فایل برای راه‌اندازی در سامانه مودیان استفاده می‌شود.</p>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </CardContent>
-            </Card>
-
-            <Alert className="border-amber-300 bg-amber-50/50 dark:border-amber-700/50 dark:bg-amber-950/20">
-              <Lock className="size-4 text-amber-600" />
-              <AlertTitle className="text-amber-900 dark:text-amber-200">
-                توصیه امنیتی
-              </AlertTitle>
-              <AlertDescription className="text-xs leading-6 text-amber-900/80 dark:text-amber-200/80">
-                فایل <code dir="ltr" className="px-1 bg-amber-100 dark:bg-amber-900/40 rounded">mykey.key</code> شامل
-                کلید خصوصی شماست. هرگز آن را از طریق ایمیل یا پیام‌رسان ارسال نکنید.
-                این فایل فقط باید روی سرور یا سیستم امن شما قرار گیرد.
-              </AlertDescription>
-            </Alert>
-          </aside>
-        </div>
 
         {/* Results Section */}
         {result && (
@@ -999,6 +1164,7 @@ openssl req -new -utf8 -config "C:\\openssl\\config.txt" -newkey rsa:2048 -keyou
             </Alert>
           </section>
         )}
+        </div>
           </TabsContent>
 
           <TabsContent value="verify" className="mt-0 focus-visible:outline-none">
