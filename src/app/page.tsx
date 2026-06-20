@@ -57,7 +57,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { FileViewer } from "@/components/csr/file-viewer";
 import { VerifyKeysForm } from "@/components/csr/verify-keys-form";
-import { ALL_PROVINCES, getCitiesForProvince, DEFAULT_PASSWORD } from "@/lib/iran-data";
+import { ALL_PROVINCES, getCitiesForProvince } from "@/lib/iran-data";
 import { cn } from "@/lib/utils";
 
 type Persona = "UNA" | "NGO" | "DAB";
@@ -122,9 +122,7 @@ export default function Home() {
   const [dabOrgUnit2, setDabOrgUnit2] = useState("");
   const [dabOrgUnit3, setDabOrgUnit3] = useState("");
 
-  // Password (with default)
-  const [password, setPassword] = useState(DEFAULT_PASSWORD);
-  const [showPassword, setShowPassword] = useState(false);
+  // Password is no longer handled in the frontend — backend always applies the default.
 
   const availableCities = useMemo(
     () => getCitiesForProvince(province),
@@ -161,7 +159,6 @@ export default function Home() {
     setProvince("");
     setCity("");
     setEmail("");
-    setPassword(DEFAULT_PASSWORD);
     setResult(null);
     setErrors([]);
   };
@@ -200,8 +197,7 @@ export default function Home() {
     if (!city.trim()) errs.push("انتخاب شهر الزامی است.");
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       errs.push("پست الکترونیک معتبر نیست.");
-    // DAB persona: password is handled in backend, no client-side password check
-    if (persona !== "DAB" && !password.trim()) errs.push("رمز عبور الزامی است.");
+    // Password is handled entirely in the backend — no client-side validation.
     return errs;
   };
 
@@ -213,14 +209,12 @@ export default function Home() {
       cityFa: city,
     };
     if (persona === "UNA") {
-      base.password = password;
       base.firstNameFa = firstNameFa.trim() || undefined;
       base.lastNameFa = lastNameFa.trim() || undefined;
       base.firstNameEn = firstNameEn.trim() || undefined;
       base.lastNameEn = lastNameEn.trim() || undefined;
       base.nationalCode = nationalCode.trim() || undefined;
     } else if (persona === "NGO") {
-      base.password = password;
       base.orgNameFa = orgNameFa.trim() || undefined;
       base.orgNameEn = orgNameEn.trim() || undefined;
       base.nationalId = nationalId.trim() || undefined;
@@ -944,68 +938,16 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            {/* Password section — hidden for DAB (handled in backend) */}
-            {persona === "DAB" ? (
-              <Alert className="border-primary/30 bg-primary/5">
-                <Lock className="size-4 text-primary" />
-                <AlertTitle>رمز کلید خصوصی</AlertTitle>
-                <AlertDescription className="text-xs leading-6">
-                  برای مرجع ثبت دفتر الکترونیکی، رمز کلید خصوصی به‌صورت خودکار در
-                  بک‌اند اعمال می‌شود و نیازی به ورود آن نیست. کلید خصوصی (<code dir="ltr">mykey.key</code>) را پس از دریافت در محل امن نگه‌دارید.
-                </AlertDescription>
-              </Alert>
-            ) : (
-            <Card className="border-border/60 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <span className="size-7 rounded-lg bg-primary/10 text-primary grid place-items-center">
-                    ۳
-                  </span>
-                  رمز عبور کلید خصوصی
-                </CardTitle>
-                <CardDescription>
-                  این رمز برای محافظت از کلید خصوصی (PEM pass phrase) استفاده می‌شود.
-                  رمز پیش‌فرض طبق درخواست تنظیم شده است.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FieldGroup
-                  label="رمز عبور"
-                  required
-                  hint="PEM pass phrase"
-                  htmlFor="password"
-                >
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      dir="ltr"
-                      className="bg-background text-left pl-20 pr-3 font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((s) => !s)}
-                      className="absolute inset-y-0 left-2 px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label={showPassword ? "پنهان کردن رمز" : "نمایش رمز"}
-                    >
-                      {showPassword ? "پنهان" : "نمایش"}
-                    </button>
-                  </div>
-                </FieldGroup>
-                <Alert>
-                  <Info className="size-4" />
-                  <AlertTitle>تذکر امنیتی</AlertTitle>
-                  <AlertDescription className="text-xs leading-6">
-                    کلید خصوصی (<code dir="ltr">mykey.key</code>) باید محرمانه بماند و
-                    تحت هیچ شرایطی با کسی به اشتراک گذاشته نشود. رمز عبور را در جای
-                    امن نگه‌داری کنید.
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
-            )}
+            {/* Password notice — handled entirely in backend */}
+            <Alert className="border-primary/30 bg-primary/5">
+              <Lock className="size-4 text-primary" />
+              <AlertTitle>رمز کلید خصوصی</AlertTitle>
+              <AlertDescription className="text-xs leading-6">
+                رمز کلید خصوصی (PEM pass phrase) به‌صورت خودکار در بک‌اند اعمال
+                می‌شود و نیازی به ورود آن نیست. کلید خصوصی (<code dir="ltr">mykey.key</code>) را پس از دریافت در محل امن نگه‌دارید و هرگز
+                آن را از طریق ایمیل یا پیام‌رسان ارسال نکنید.
+              </AlertDescription>
+            </Alert>
 
             {/* Validation errors */}
             {errors.length > 0 && (

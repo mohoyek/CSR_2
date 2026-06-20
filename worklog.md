@@ -150,3 +150,33 @@ Stage Summary:
 - Removed the "درباره گواهی الکترونیک" card and "راهنمای مراحل (OpenSSL)" accordion from the sidebar
 - Restructured the layout from a 2-column grid (form + sidebar) to a single centered column (max-w-4xl) for a cleaner look
 - All 3 personas tested and working: UNA, NGO, DAB
+
+---
+Task ID: 4
+Agent: main (Z.ai Code)
+Task: Remove the entire "Password" (رمز عبور کلید خصوصی) section from the frontend. The password should always be handled in the backend with the default value, for all personas (UNA/NGO/DAB).
+
+Work Log:
+- Removed the password `<Card>` (which contained the password input, show/hide toggle, and security alert) and the DAB-only password `<Alert>` — both replaced with a single unified `<Alert>` explaining that the password is handled automatically in the backend
+- Removed `password` and `showPassword` state variables from page.tsx
+- Removed `setPassword(DEFAULT_PASSWORD)` call from resetForm
+- Removed the password validation line from the `validate()` function (`if (persona !== "DAB" && !password.trim())...`)
+- Removed `base.password = password` from both UNA and NGO branches of buildPayload — the client no longer sends any password to the API
+- Removed the now-unused `DEFAULT_PASSWORD` import from page.tsx
+- Fixed an accidental duplicate `const [loading, setLoading]` declaration introduced during the edit (which caused a runtime error and a 500 response)
+- Updated `/api/generate-csr/route.ts`:
+  - Removed `password?: string` from the `CsrRequest` interface (client no longer sends it)
+  - Changed the POST handler to always use `DEFAULT_PASSWORD` regardless of persona or client input: `const password = DEFAULT_PASSWORD;`
+- Verified via API: all 3 personas (UNA, NGO, DAB) now succeed WITHOUT a password field in the request body, and all return `passwordHint: "رمز پیش‌فرض استفاده‌شده: RAYNOP@SSWORD123456"`
+- Verified via Agent Browser:
+  - No `input[type=password]` element exists on the page (`hasPasswordField: false`)
+  - The unified password notice Alert is shown with the message "رمز کلید خصوصی" and "بک‌اند اعمال"
+  - Filled the NGO form (no password step), submitted → CSR generated successfully, config.txt correct
+  - No console errors
+- Lint clean
+
+Stage Summary:
+- The "رمز عبور کلید خصوصی" card is completely removed from the frontend for all personas
+- A single informational Alert replaces it, explaining the password is handled in the backend
+- The API now always uses `DEFAULT_PASSWORD` ("RAYNOP@SSWORD123456") and ignores any client-provided password
+- All 3 personas (UNA, NGO, DAB) work end-to-end without a password field in the UI

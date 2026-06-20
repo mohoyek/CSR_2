@@ -9,7 +9,6 @@ type PersonaType = "UNA" | "NGO" | "DAB";
 
 interface CsrRequest {
   persona: PersonaType;
-  password?: string;
   // Common fields
   email?: string;
   provinceFa?: string;
@@ -326,11 +325,9 @@ function validateInput(req: CsrRequest): string[] {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as CsrRequest;
-    // DAB persona: password is always handled in the backend (never read from client)
-    const password =
-      body.persona === "DAB"
-        ? DEFAULT_PASSWORD
-        : body.password?.trim() || DEFAULT_PASSWORD;
+    // Password is always handled in the backend — never read from the client.
+    // This keeps the default PEM pass phrase consistent across all personas.
+    const password = DEFAULT_PASSWORD;
 
     // Validate input
     const errors = validateInput(body);
