@@ -180,3 +180,50 @@ Stage Summary:
 - A single informational Alert replaces it, explaining the password is handled in the backend
 - The API now always uses `DEFAULT_PASSWORD` ("RAYNOP@SSWORD123456") and ignores any client-provided password
 - All 3 personas (UNA, NGO, DAB) work end-to-end without a password field in the UI
+
+---
+Task ID: 5
+Agent: main (Z.ai Code)
+Task: Three removals requested: (1) Remove the "رمز کلید خصوصی" password notice Alert. (2) Remove the "واحدهای سازمانی" (optional organizational units) section. (3) Remove the entire "مرجع ثبت دفتر" (DAB) persona.
+
+Work Log:
+- Removed the password notice `<Alert>` ("رمز کلید خصوصی / PEM pass phrase...") from page.tsx entirely
+- Removed the "واحدهای سازمانی (اختیاری)" section (Separator + 3-input grid + label/badge) from the NGO form
+- Removed the entire DAB persona:
+  - Removed the DAB radio card ("مرجع ثبت دفتر" with Building2 icon) from the RadioGroup
+  - Reverted RadioGroup grid from 3-column back to 2-column
+  - Reverted dynamic form card title/description from 3-way ternary back to simple UNA/NGO ternary
+  - Removed the entire DAB form branch (Gov/NGO sub-toggle, office name Fa/En, office ID, national code, person name, org units) — ~180 lines of JSX
+  - Reverted the conditional from `) : persona === "NGO" ? (` back to `) : (`
+  - Removed 10 DAB state variables (dabFirstNameFa, dabLastNameFa, dabNationalCode, dabOfficeNameFa, dabOfficeNameEn, dabOfficeId, dabOrgType, dabOrgUnit1-3)
+  - Removed orgUnit1-3 state variables (no longer used)
+  - Removed DAB and orgUnit resets from resetForm
+  - Removed DAB validation branch and orgUnit references from validate()
+  - Removed DAB and orgUnit payload assignments from buildPayload
+  - Removed the `DabOrgType` type alias
+  - Updated `Persona` type from `"UNA" | "NGO" | "DAB"` to `"UNA" | "NGO"`
+  - Removed the unused `Building2` import
+- Updated `/api/generate-csr/route.ts`:
+  - Updated `PersonaType` from `"UNA" | "NGO" | "DAB"` to `"UNA" | "NGO"`
+  - Removed all 10 DAB fields from the `CsrRequest` interface
+  - Removed DAB branch from `buildConfigTxt` (CN with .RA [code], OU, SN, G, etc.)
+  - Reverted NGO branch in buildConfigTxt from `} else if (req.persona === "NGO") {` back to `} else {`
+  - Removed DAB branch from `buildSubjectAttrs` (~65 lines)
+  - Reverted NGO branch in buildSubjectAttrs back to `} else {`
+  - Removed DAB validation branch from `validateInput`
+  - Removed DAB commonName/serialNumber branch from the POST summary builder
+- Tested with Agent Browser:
+  - Only 2 persona radio options remain (UNA, NGO) — DAB gone
+  - `hasPasswordNotice: false`, `hasOrgUnits: false`, `hasDAB: false` — all confirmed
+  - Filled NGO form (no org units step), selected Tehran/تهران, submitted → CSR generated successfully
+  - config.txt is clean (no 1.OU/2.OU/3.OU lines)
+  - Switched to UNA — form has only name/national-code fields, no org units
+  - No console errors, no runtime errors
+- Lint clean
+
+Stage Summary:
+- Removed the "رمز کلید خصوصی" password notice Alert completely
+- Removed the "واحدهای سازمانی (اختیاری)" section from the NGO form (and it was already part of the removed DAB form)
+- Removed the entire DAB ("مرجع ثبت دفتر") persona — radio option, form fields, state, validation, payload, and all API branches
+- The site now supports only 2 personas: UNA (شخص حقیقی) and NGO (شخص حقوقی)
+- Both the frontend and backend are cleaned up — no dead code remains
